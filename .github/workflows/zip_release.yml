@@ -3,9 +3,9 @@ name: CI/CD Pipeline for ATAK-Maps
 on:
   push:
     branches:
-      - feature/ci-cd-automation  # This workflow will run only on pushes to this branch
+      - feature/ci-cd-automation
     paths:
-      - '**/*.xml'  # And only when there are changes in XML files
+      - '**/*.xml'
 
 jobs:
   build-and-release:
@@ -15,29 +15,25 @@ jobs:
         uses: actions/checkout@v2
       
       - name: Get Date
-        id: date
-        run: echo "::set-output name=date::$(date +'%m-%d-%Y')"
+        run: |
+          echo "date=$(date +'%m-%d-%Y')" >> $GITHUB_ENV  # Adjusted for new syntax
 
       - name: Zip the updated XML files
-        run: zip -r ATAK-Maps-${{ steps.date.outputs.date }}.zip . -i \*.xml
+        run: zip -r ATAK-Maps-${{ env.date }}.zip . -i \*.xml  # Using the new environment variable syntax
 
       - name: Generate release notes
-        id: release_notes
         run: |
-          echo "release_notes<<EOF" >> $GITHUB_ENV
-          git log --pretty=format:"- %s" $(git describe --tags --abbrev=0 @^)..@ >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-
+          git fetch --prune --unshallow  # Ensuring complete git history for accurate logs
+          echo "release_notes=$(git log --pretty=format:"- %s" $(git describe --tags --abbrev=0 @^)..@)" >> $GITHUB_ENV
       - name: Create Draft Release
-        id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: draft-release-${{ steps.date.outputs.date }}
-          release_name: Draft Release ${{ steps.date.outputs.date }}
+          tag_name: draft-release-${{ env.date }}
+          release_name: Draft Release ${{ env.date }}
           body: ${{ env.release_notes }}
-          draft: true  # This marks the release as a draft
+          draft: true
           prerelease: false
 
       - name: Upload Release Asset
@@ -46,6 +42,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./ATAK-Maps-${{ steps.date.outputs.date }}.zip
-          asset_name: ATAK-Maps-${{ steps.date.outputs.date }}.zip
+          asset_path: ./ATAK-Maps-${{ env.date }}.zip
+          asset_name: ATAK-Maps-${{ env.date }}.zip
           asset_content_type: application/zip
